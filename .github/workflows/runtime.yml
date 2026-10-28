@@ -1,0 +1,36 @@
+name: build-runtime
+on:
+  workflow_dispatch: {}
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.23' }
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+      - name: Build launcher stub (Windows)
+        working-directory: apkbox/launcher
+        run: GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -H=windowsgui" -o ../../launcher.exe .
+      - name: Build runtime
+        run: bash apkbox/image/build-runtime.sh
+      - name: Publish release
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete runtime-v1 --cleanup-tag -y || true
+          gh release create runtime-v1 runtime.zip runtime.zip.sha256 launcher.exe screenshot.png --title runtime-v1 --notes "Minimal Android 9 runtime + Windows launcher stub"
+      - name: Publish failure screenshot
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -f screenshot.png ]; then gh release delete debug --cleanup-tag -y || true; gh release create debug screenshot.png serial.log --title debug --notes "failed smoke test"; fi
