@@ -2,11 +2,24 @@
 # Builds runtime.zip = portable QEMU for Windows + minimal Android-x86 9.0 (only what is needed to run one APK).
 # Runs on a GitHub Actions ubuntu runner (see .github/workflows/runtime.yml).
 set -euxo pipefail
+trap 'status=$?; echo "::error::Build failed at line $LINENO (exit $status)"' ERR
 ROOT=$PWD; W=$ROOT/work; rm -rf "$W"; mkdir -p "$W"; cd "$W"
 sudo apt-get update -qq
 sudo apt-get install -y -qq squashfs-tools e2fsprogs qemu-system-x86 qemu-utils imagemagick zip curl xz-utils
-curl -sL https://github.com/ip7z/7zip/releases/download/24.08/7z2408-linux-x64.tar.xz | tar -xJ 7zz
-curl -L "https://sourceforge.net/projects/android-x86/files/Release%209.0/android-x86_64-9.0-r2.iso/download" -o a.iso
+# Retry partial transfers and label failures so they can be diagnosed in Actions.
+download() {
+  local url="$1" out="$2" attempt
+  for attempt in 1 2 3 4 5; do
+    echo "Downloading $out (attempt $attempt/5)"
+    if curl -fL --connect-timeout 30 --max-time 1800 --retry 3 --retry-all-errors --retry-delay 5 -C - -o "$out" "$url"; then return 0; fi
+    sleep "$((attempt * 5))"
+  done
+  echo "::error::Download failed for $out after retries"
+  return 1
+}
+download https://github.com/ip7z/7zip/releases/download/24.08/7z2408-linux-x64.tar.xz 7zip.tar.xz
+tar -xJf 7zip.tar.xz 7zz
+download "https://sourceforge.net/projects/android-x86/files/Release%209.0/android-x86_64-9.0-r2.iso/download" a.iso
 ./7zz x -y a.iso -oiso >/dev/null
 unsquashfs -d sfs iso/system.sfs >/dev/null
 mkdir sys && sudo mount -o loop sfs/system.img sys
@@ -52,7 +65,8 @@ PY
   convert shot.ppm screenshot.png
   M=$(convert screenshot.png -colorspace Gray -format "%[fx:mean]" info:)
   echo "t=$((i*10))s brightness=$M"
-  if awk "BEGIN{exit !($M>0.2)}"; then OK=1; sleep 20; python3 - <<'PY'
+  # A bright boot logo is not proof of a completed Android boot.
+  if grep -q "@@BOOT=1" console.log && awk "BEGIN{exit !($M>0.2)}"; then OK=1; sleep 20; python3 - <<'PY'
 import socket,time
 s=socket.socket(socket.AF_UNIX);s.connect('mon.sock');time.sleep(.3);s.recv(4096)
 s.send(b'screendump shot.ppm\n');time.sleep(1.5)
@@ -66,7 +80,8 @@ cp console.log "$ROOT/console.log" || true
 
 # ---- portable QEMU for Windows ----
 F=$(curl -s https://qemu.weilnetz.de/w64/ | grep -o 'qemu-w64-setup-[0-9]*\.exe' | sort -u | tail -1)
-curl -L "https://qemu.weilnetz.de/w64/$F" -o qemu-setup.exe
+[ -n "$F" ] || { echo "::error::Unable to find Windows QEMU installer"; exit 1; }
+download "https://qemu.weilnetz.de/w64/$F" qemu-setup.exe
 ./7zz x -y qemu-setup.exe -oqemu >/dev/null
 QD=$(dirname "$(find qemu -name qemu-system-x86_64.exe | head -1)")
 find "$QD" -maxdepth 1 -name 'qemu-system-*.exe' ! -name 'qemu-system-x86_64.exe' -delete
