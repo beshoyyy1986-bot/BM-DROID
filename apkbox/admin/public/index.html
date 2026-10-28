@@ -1,0 +1,22 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>APK Box Admin</title>
+<style>body{font:15px system-ui;max-width:900px;margin:30px auto;padding:0 16px}input,button{padding:8px;margin:4px 0}table{width:100%;border-collapse:collapse}td,th{border-bottom:1px solid #ddd;padding:6px;text-align:start}fieldset{margin-bottom:20px}</style>
+<h2>لوحة الأدمن</h2>
+<input id=pw type=password placeholder="Admin password"> <button onclick="load()">دخول</button>
+<fieldset><legend>تصدير جديد</legend>
+<input id=apk type=file accept=".apk"><br>
+<label><input type=checkbox id=sd>مسح ذاتي عند الانتهاء</label><br><input id=name placeholder="اسم التطبيق"> <input id=customer placeholder="اسم العميل"> <input id=days type=number value=30 style="width:90px"> يوم<br>
+<button onclick="exp()">تصدير EXE</button> <span id=st></span></fieldset>
+<table><thead><tr><th>العميل<th>التطبيق<th>ينتهي<th>الحالة<th>آخر ظهور<th></tr></thead><tbody id=rows></tbody></table>
+<script>
+const H=()=>({'x-admin-password':pw.value});
+async function load(){const r=await fetch('/api/licenses',{headers:H()});if(!r.ok)return alert('كلمة السر خاطئة');
+const j=await r.json();const dv=Object.fromEntries(j.devices.map(d=>[d.license_id,d]));
+rows.innerHTML=j.licenses.map(l=>`<tr><td>${l.subscriber}<td>${l.app_name}<td>${(l.expires_at||'لم يُفعّل ('+l.duration_days+' يوم)').slice(0,10)}<td>${l.status}<td>${(dv[l.id]?.last_seen||'').slice(0,16)}<td>
+<button onclick="ac('${l.id}','${l.status=='paused'?'resume':'pause'}')">${l.status=='paused'?'استئناف':'إيقاف مؤقت'}</button> <button onclick="ac('${l.id}','ban')">حظر</button> <button onclick="ac('${l.id}','extend',30)">+30</button> <button onclick="ac('${l.id}','reset_device')">فك الجهاز</button>`).join('')}
+async function ac(id,action,days){await fetch('/api/action',{method:'POST',headers:H(),body:JSON.stringify({id,action,days})});load()}
+async function exp(){const f=apk.files[0];if(!f||!name.value)return alert('اختر APK واكتب الاسم');st.textContent='جارٍ التصدير...';
+const r=await fetch(`/api/export?name=${encodeURIComponent(name.value)}&customer=${encodeURIComponent(customer.value)}&days=${days.value}&self_destruct=${sd.checked?1:0}`,{method:'POST',headers:H(),body:f});
+if(!r.ok){st.textContent=(await r.json()).error;return}
+const a=document.createElement('a');a.href=URL.createObjectURL(await r.blob());a.download=name.value+'.exe';a.click();st.textContent='تم';load()}
+</script>
