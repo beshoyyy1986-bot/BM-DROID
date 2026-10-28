@@ -29,8 +29,8 @@ jobs:
           gh release delete runtime-v1 --cleanup-tag -y || true
           gh release create runtime-v1 runtime.zip runtime.zip.sha256 launcher.exe screenshot.png --title runtime-v1 --notes "Minimal Android 9 runtime + Windows launcher stub"
       - name: Publish failure screenshot
-        if: failure()
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [ -f screenshot.png ]; then gh release delete debug --cleanup-tag -y || true; gh release create debug screenshot.png serial.log --title debug --notes "failed smoke test"; fi
+          if [ -f screenshot.png ]; then gh release delete debug --cleanup-tag -y || true; gh release create debug screenshot.png console.log --title debug --notes "failed smoke test"; fi
