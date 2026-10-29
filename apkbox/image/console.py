@@ -15,7 +15,9 @@ CMDS = ['echo @@BOOT=$(getprop sys.boot_completed) ANIM=$(getprop init.svc.boota
         'ps -A | grep -E "system_server|zygote|surfaceflinger|apkbox"',
         'logcat -d -b all | grep -E "FATAL EXCEPTION|Watchdog|has died|SystemServer|ANR in|Exception|Slow operation" | tail -60',
         'logcat -d -b all | tail -40',
-        'echo @@APKBOX; ps -A | grep -c settings']
+        'echo @@PACKAGE=$(pm path com.neumorphic.calculator)',
+        'echo @@APP_PID=$(pidof com.neumorphic.calculator)',
+        'dumpsys activity activities | grep mResumedActivity']
 for t in (90, 200, 300):
     time.sleep(t - (time.time() % 1000) if False else 0)
 start = time.time()

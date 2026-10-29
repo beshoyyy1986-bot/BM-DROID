@@ -5,18 +5,19 @@
 <input id=pw type=password placeholder="Admin password"> <button onclick="load()">دخول</button>
 <fieldset><legend>تصدير جديد</legend>
 <input id=apk type=file accept=".apk"><br>
-<label><input type=checkbox id=sd>مسح ذاتي عند الانتهاء</label><br><input id=name placeholder="اسم التطبيق"> <input id=customer placeholder="اسم العميل"> <input id=days type=number value=30 style="width:90px"> يوم<br>
+<label><input type=checkbox id=sd>مسح ذاتي عند الانتهاء</label><br><input id=appname placeholder="اسم التطبيق"> <input id=customer placeholder="اسم العميل"> <input id=days type=number value=30 style="width:90px"> يوم<br>
 <button onclick="exp()">تصدير EXE</button> <span id=st></span></fieldset>
 <table><thead><tr><th>العميل<th>التطبيق<th>ينتهي<th>الحالة<th>آخر ظهور<th></tr></thead><tbody id=rows></tbody></table>
 <script>
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const H=()=>({'x-admin-password':pw.value});
 async function load(){const r=await fetch('/api/licenses',{headers:H()});if(!r.ok)return alert('كلمة السر خاطئة');
 const j=await r.json();const dv=Object.fromEntries(j.devices.map(d=>[d.license_id,d]));
-rows.innerHTML=j.licenses.map(l=>`<tr><td>${l.subscriber}<td>${l.app_name}<td>${(l.expires_at||'لم يُفعّل ('+l.duration_days+' يوم)').slice(0,10)}<td>${l.status}<td>${(dv[l.id]?.last_seen||'').slice(0,16)}<td>
+rows.innerHTML=j.licenses.map(l=>`<tr><td>${esc(l.subscriber)}<td>${esc(l.app_name)}<td>${(l.expires_at||'لم يُفعّل ('+l.duration_days+' يوم)').slice(0,10)}<td>${esc(l.status)}<td>${(dv[l.id]?.last_seen||'').slice(0,16)}<td>
 <button onclick="ac('${l.id}','${l.status=='paused'?'resume':'pause'}')">${l.status=='paused'?'استئناف':'إيقاف مؤقت'}</button> <button onclick="ac('${l.id}','ban')">حظر</button> <button onclick="ac('${l.id}','extend',30)">+30</button> <button onclick="ac('${l.id}','reset_device')">فك الجهاز</button>`).join('')}
 async function ac(id,action,days){await fetch('/api/action',{method:'POST',headers:H(),body:JSON.stringify({id,action,days})});load()}
-async function exp(){const f=apk.files[0];if(!f||!name.value)return alert('اختر APK واكتب الاسم');st.textContent='جارٍ التصدير...';
-const r=await fetch(`/api/export?name=${encodeURIComponent(name.value)}&customer=${encodeURIComponent(customer.value)}&days=${days.value}&self_destruct=${sd.checked?1:0}`,{method:'POST',headers:H(),body:f});
+async function exp(){const f=apk.files[0];if(!f||!appname.value)return alert('اختر APK واكتب الاسم');st.textContent='جارٍ التصدير...';
+const r=await fetch(`/api/export?name=${encodeURIComponent(appname.value)}&customer=${encodeURIComponent(customer.value)}&days=${days.value}&self_destruct=${sd.checked?1:0}`,{method:'POST',headers:H(),body:f});
 if(!r.ok){st.textContent=(await r.json()).error;return}
-const a=document.createElement('a');a.href=URL.createObjectURL(await r.blob());a.download=name.value+'.exe';a.click();st.textContent='تم';load()}
+const a=document.createElement('a');a.href=URL.createObjectURL(await r.blob());a.download=appname.value+'.exe';a.click();st.textContent='تم';load()}
 </script>

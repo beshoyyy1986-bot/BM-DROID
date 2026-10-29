@@ -84,10 +84,13 @@ func ps(script string) (string, error) {
 	return strings.TrimSpace(string(out)), err
 }
 
-func hwid() string {
-	out, _ := ps(`(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Cryptography').MachineGuid`)
+func hwid() (string, error) {
+	out, err := ps(`(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Cryptography').MachineGuid`)
+	if err != nil || out == "" {
+		return "", fmt.Errorf("cannot read device identifier")
+	}
 	h := sha256.Sum256([]byte("apkbox|" + out))
-	return hex.EncodeToString(h[:])
+	return hex.EncodeToString(h[:]), nil
 }
 
 type apiResp struct {
@@ -165,6 +168,9 @@ func requirements() error {
 }
 
 func download(url, dst, wantSHA string) error {
+	if len(wantSHA) != 64 {
+		return fmt.Errorf("runtime checksum is missing or invalid")
+	}
 	resp, err := http.Get(url)
 	if err != nil {
 		return err
@@ -227,7 +233,10 @@ func main() {
 	if err != nil {
 		fail(nil, "ملف غير صالح.")
 	}
-	id := hwid()
+	id, err := hwid()
+	if err != nil {
+		fail(m, "تعذّر قراءة معرّف الجهاز للتحقق من الترخيص.")
+	}
 
 	// 1) license (online)
 	base := filepath.Join(os.Getenv("LOCALAPPDATA"), "ApkBox", m.AppName)
@@ -278,7 +287,9 @@ func main() {
 	if _, err := os.Stat(userDisk); err != nil {
 		c := exec.Command(filepath.Join(rt, "qemu-img.exe"), "create", "-f", "qcow2", "-b", filepath.Join(rt, "base.qcow2"), "-F", "qcow2", userDisk)
 		c.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-		c.Run()
+		if err := c.Run(); err != nil {
+			fail(m, "فشل تجهيز قرص التطبيق: "+err.Error())
+		}
 	}
 	if cfg.RAM < 1536 {
 		cfg.RAM = 1536
@@ -313,7 +324,11 @@ func main() {
 			return
 		case <-t.C:
 			r, err := license(m, id, base)
-			if err == nil && !r.OK {
+			if err != nil {
+				q.Process.Kill()
+				fail(m, "تعذّر التحقق من الترخيص عبر الإنترنت. تم إيقاف التطبيق؛ تحقق من الاتصال وحاول مرة أخرى.")
+			}
+			if !r.OK {
 				q.Process.Kill()
 				denied(m, base, r)
 			}

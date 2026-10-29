@@ -44,7 +44,11 @@ mke2fs -q -t ext4 -L ANDROIDBOX -d disk base.img
 qemu-img convert -c -O qcow2 base.img base.qcow2
 
 # ---- smoke test: boot and screenshot ----
-mkdir -p apk; printf 'PKG=com.android.settings\nW=480\nH=800\nD=240\n' > apk/app.conf; echo x > apk/app.apk
+# A temporary open-source x86_64 test APK checks install and launch; it is not packaged.
+mkdir -p apk
+printf 'PKG=com.neumorphic.calculator\nW=480\nH=800\nD=240\n' > apk/app.conf
+download https://f-droid.org/repo/com.neumorphic.calculator_2.apk apk/app.apk
+echo '0ec687a490a1a8eac754d9409b23ab0735a1c5dced9cac0e6c0558f393747064  apk/app.apk' | sha256sum -c -
 ACCEL=tcg; [ -e /dev/kvm ] && ACCEL=kvm
 qemu-system-x86_64 -machine q35 -accel $ACCEL -cpu qemu64 -m 2048 -smp 2 -kernel iso/kernel -initrd iso/initrd.img \
   -append "root=/dev/ram0 androidboot.selinux=permissive SRC=/android DATA= console=ttyS0" \
@@ -66,7 +70,7 @@ PY
   M=$(convert screenshot.png -colorspace Gray -format "%[fx:mean]" info:)
   echo "t=$((i*10))s brightness=$M"
   # Only Android reporting boot completion counts; brightness alone is not sufficient.
-  if grep -q "@@BOOT=1" console.log; then OK=1; sleep 20; python3 - <<'PY'
+  if grep -q "@@BOOT=1" console.log && grep -q "@@PACKAGE=package:" console.log && grep -Eq "@@APP_PID=[0-9]+" console.log; then OK=1; sleep 20; python3 - <<'PY'
 import socket,time
 s=socket.socket(socket.AF_UNIX);s.connect('mon.sock');time.sleep(.3);s.recv(4096)
 s.send(b'screendump shot.ppm\n');time.sleep(1.5)

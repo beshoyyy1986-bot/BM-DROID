@@ -1,7 +1,10 @@
 const http = require('http'), fs = require('fs'), path = require('path');
 const env = {};
-try { fs.readFileSync(path.join(__dirname, '.env'), 'utf8').split(/\r?\n/).forEach(l => { const m = l.match(/^\s*([A-Z_]+)\s*=\s*(.*)$/); if (m) env[m[1]] = m[2]; }); } catch {}
+try { fs.readFileSync(path.join(__dirname, '.env'), 'utf8').split(/\r?\n/).forEach(l => { const m = l.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)$/); if (m) env[m[1]] = m[2]; }); } catch {}
 const E = k => process.env[k] || env[k] || '';
+if (!E('ADMIN_PASSWORD') || E('ADMIN_PASSWORD') === 'change-me') throw new Error('Set a strong ADMIN_PASSWORD in admin/.env');
+if (!/^[a-f0-9]{64}$/.test(E('ADMIN_TOKEN'))) throw new Error('Set a valid ADMIN_TOKEN in admin/.env');
+if (!/^[a-fA-F0-9]{64}$/.test(E('RUNTIME_SHA256'))) throw new Error('Set RUNTIME_SHA256 in admin/.env');
 const API = E('SUPABASE_URL').replace(/\/$/, '') + '/functions/v1/bm-licensing';
 const { packageName } = require('./apk');
 const sb = async (op, data) => { const r = await fetch(API + '/' + op, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + E('ADMIN_TOKEN') }, body: JSON.stringify(data || {}) }); const j = await r.json(); if (!j.ok) throw new Error(j.error || 'error'); return j; };
@@ -27,10 +30,11 @@ http.createServer(async (req, res) => {
       const days = +u.searchParams.get('days') || 30;
       const apk = await body(req);
       let pkg; try { pkg = packageName(apk); } catch { return send(res, 400, { error: 'not a valid APK' }); }
+      if (!fs.existsSync(path.join(__dirname, 'stub', 'launcher.exe'))) return send(res, 500, { error: 'launcher stub is missing' });
       const { license: lic } = await sb('admin-create', { subscriber: u.searchParams.get('customer') || '-', app_name: name, app_package: pkg, duration_days: days, self_destruct: u.searchParams.get('self_destruct') === '1' });
       const exe = buildExe(apk, { app_name: name, app_package: pkg, license_key: lic.license_key, api_base: API, runtime_url: E('RUNTIME_URL'), runtime_sha256: E('RUNTIME_SHA256') });
       return send(res, 200, exe, 'application/octet-stream', { 'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(name)}.exe` });
     }
     send(res, 404, { error: 'not found' });
   } catch (e) { send(res, 500, { error: String(e.message || e) }); }
-}).listen(+E('PORT') || 8080, () => console.log('Admin panel: http://localhost:' + (E('PORT') || 8080)));
+}).listen(+E('PORT') || 8080, '127.0.0.1', () => console.log('Admin panel: http://localhost:' + (E('PORT') || 8080)));
