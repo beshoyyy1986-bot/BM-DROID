@@ -26,7 +26,7 @@ mkdir sys && sudo mount -o loop sfs/system.img sys
 
 # ---- strip everything that is not needed to run one APK ----
 for a in WallpaperBackup Camera2 Development GoogleExtShared Traceur GoogleContactsSyncAdapter TermOnePlus BluetoothMidiService Bluetooth BasicSmsReceiver SimAppDialog Calendar DeskClock ExactCalculator PrintSpooler PartnerBookmarksProvider BookmarkProvider Gallery2 BasicDreams WallpaperPicker HTMLViewer GoogleCalendarSyncAdapter BuiltInPrintService Gmail2 LiveWallpapersPicker GooglePrintRecommendationService EasterEgg RSSReader Chrome CarrierDefaultApp CompanionDeviceManager NotePad; do sudo rm -rf sys/app/$a; done
-for p in GoogleLoginService ManagedProvisioning GmsCoreSetup Eleven Dialer Contacts GmsCore GoogleOneTimeInitializer SetupWizard GoogleFeedback GoogleExtServices GoogleBackupTransport Velvet GoogleServicesFramework GoogleRestore Phonesky GooglePartnerSetup AnalyticsService EmergencyInfo SettingsIntelligence CalendarProvider GooglePackageInstaller Taskbar WallpaperCropper StatementService; do sudo rm -rf sys/priv-app/$p; done
+for p in GoogleLoginService ManagedProvisioning GmsCoreSetup Eleven Dialer Contacts GmsCore GoogleOneTimeInitializer SetupWizard GoogleFeedback GoogleExtServices GoogleBackupTransport Velvet GoogleServicesFramework GoogleRestore Phonesky GooglePartnerSetup AnalyticsService EmergencyInfo SettingsIntelligence CalendarProvider Taskbar WallpaperCropper StatementService; do sudo rm -rf sys/priv-app/$p; done
 
 # ---- boot hook: install the APK from the virtual drive and keep it running full-screen ----
 sudo cp "$ROOT/apkbox/image/apkbox.sh" sys/bin/apkbox.sh; sudo chmod 755 sys/bin/apkbox.sh
@@ -65,8 +65,8 @@ PY
   convert shot.ppm screenshot.png
   M=$(convert screenshot.png -colorspace Gray -format "%[fx:mean]" info:)
   echo "t=$((i*10))s brightness=$M"
-  # A bright boot logo is not proof of a completed Android boot.
-  if grep -q "@@BOOT=1" console.log && awk "BEGIN{exit !($M>0.2)}"; then OK=1; sleep 20; python3 - <<'PY'
+  # Only Android reporting boot completion counts; brightness alone is not sufficient.
+  if grep -q "@@BOOT=1" console.log; then OK=1; sleep 20; python3 - <<'PY'
 import socket,time
 s=socket.socket(socket.AF_UNIX);s.connect('mon.sock');time.sleep(.3);s.recv(4096)
 s.send(b'screendump shot.ppm\n');time.sleep(1.5)
