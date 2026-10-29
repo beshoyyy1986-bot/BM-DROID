@@ -25,8 +25,8 @@ unsquashfs -d sfs iso/system.sfs >/dev/null
 mkdir sys && sudo mount -o loop sfs/system.img sys
 
 # ---- strip everything that is not needed to run one APK ----
-for a in WallpaperBackup Camera2 Development GoogleExtShared Traceur GoogleContactsSyncAdapter TermOnePlus BluetoothMidiService Bluetooth BasicSmsReceiver SimAppDialog Calendar DeskClock ExactCalculator PrintSpooler PartnerBookmarksProvider BookmarkProvider Gallery2 BasicDreams WallpaperPicker HTMLViewer GoogleCalendarSyncAdapter BuiltInPrintService Gmail2 LiveWallpapersPicker GooglePrintRecommendationService EasterEgg RSSReader Chrome CarrierDefaultApp CompanionDeviceManager NotePad; do sudo rm -rf sys/app/$a; done
-for p in GoogleLoginService ManagedProvisioning GmsCoreSetup Eleven Dialer Contacts GmsCore GoogleOneTimeInitializer SetupWizard GoogleFeedback GoogleExtServices GoogleBackupTransport Velvet GoogleServicesFramework GoogleRestore Phonesky GooglePartnerSetup AnalyticsService EmergencyInfo SettingsIntelligence CalendarProvider Taskbar WallpaperCropper StatementService; do sudo rm -rf sys/priv-app/$p; done
+for a in WallpaperBackup Camera2 Development Traceur GoogleContactsSyncAdapter TermOnePlus BluetoothMidiService Bluetooth BasicSmsReceiver SimAppDialog Calendar DeskClock ExactCalculator PrintSpooler PartnerBookmarksProvider BookmarkProvider Gallery2 BasicDreams WallpaperPicker HTMLViewer GoogleCalendarSyncAdapter BuiltInPrintService Gmail2 LiveWallpapersPicker GooglePrintRecommendationService EasterEgg RSSReader Chrome CarrierDefaultApp CompanionDeviceManager NotePad; do sudo rm -rf sys/app/$a; done
+for p in GoogleLoginService ManagedProvisioning GmsCoreSetup Eleven Dialer Contacts GmsCore GoogleOneTimeInitializer SetupWizard GoogleFeedback GoogleBackupTransport Velvet GoogleServicesFramework GoogleRestore Phonesky GooglePartnerSetup AnalyticsService EmergencyInfo SettingsIntelligence CalendarProvider Taskbar WallpaperCropper StatementService; do sudo rm -rf sys/priv-app/$p; done
 
 # ---- boot hook: install the APK from the virtual drive and keep it running full-screen ----
 sudo cp "$ROOT/apkbox/image/apkbox.sh" sys/bin/apkbox.sh; sudo chmod 755 sys/bin/apkbox.sh
